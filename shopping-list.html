@@ -315,29 +315,39 @@
       if (!text || busy) return;
       setBusy(true);
 
-      const { error } = await db
+      const { data, error } = await db
         .from('shopping_items')
-        .insert({ text, checked: false });
+        .insert({ text, checked: false })
+        .select()
+        .single();
 
       if (error) {
         setStatus('추가 실패: ' + error.message, true);
       } else {
+        items.push(data);
         input.value = '';
         setStatus('추가됨');
-        await loadItems();
+        render();
         input.focus();
       }
       setBusy(false);
     }
 
     async function toggleItem(id, currentChecked) {
+      const newChecked = !currentChecked;
       const { error } = await db
         .from('shopping_items')
-        .update({ checked: !currentChecked })
+        .update({ checked: newChecked })
         .eq('id', id);
 
-      if (error) setStatus('수정 실패: ' + error.message, true);
-      else await loadItems();
+      if (error) {
+        setStatus('수정 실패: ' + error.message, true);
+        render();
+      } else {
+        const item = items.find(i => i.id === id);
+        if (item) item.checked = newChecked;
+        render();
+      }
     }
 
     async function deleteItem(id) {
@@ -346,8 +356,13 @@
         .delete()
         .eq('id', id);
 
-      if (error) setStatus('삭제 실패: ' + error.message, true);
-      else await loadItems();
+      if (error) {
+        setStatus('삭제 실패: ' + error.message, true);
+        render();
+      } else {
+        items = items.filter(i => i.id !== id);
+        render();
+      }
     }
 
     async function clearChecked() {
@@ -356,8 +371,13 @@
         .delete()
         .eq('checked', true);
 
-      if (error) setStatus('삭제 실패: ' + error.message, true);
-      else { setStatus('완료 항목 삭제됨'); await loadItems(); }
+      if (error) {
+        setStatus('삭제 실패: ' + error.message, true);
+      } else {
+        items = items.filter(i => !i.checked);
+        setStatus('완료 항목 삭제됨');
+        render();
+      }
     }
 
     loadItems();
